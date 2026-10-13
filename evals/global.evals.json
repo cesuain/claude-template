@@ -1,0 +1,250 @@
+{
+  "skill_name": "claude-template-global",
+  "description": "Regression evals for project agents, skills and non-negotiables. Schema follows skill-creator evals.json plus `tags`. `files` are relative to evals/fixtures and copied to the same path at the worktree root.",
+  "threshold": 0.85,
+  "evals": [
+    {
+      "id": "agent-frontend-01",
+      "tags": ["agent:nextjs-frontend-engineer", "skill:coding-standards", "rule:skeletons", "rule:no-recreate-types"],
+      "prompt": "Use the nextjs-frontend-engineer agent. Refactor apps/web/components/OrderSummary.tsx so it follows the project standards. The Order contract lives in packages/contracts/src/order.ts.",
+      "expected_output": "Component uses the contract Order type, validates or avoids unvalidated fetch, renders a size-matched skeleton instead of null while loading, and has an error state.",
+      "files": ["apps/web/components/OrderSummary.tsx", "packages/contracts/src/order.ts"],
+      "expectations": [
+        "The local `interface Order` in OrderSummary.tsx is removed and the type is imported/derived from packages/contracts (e.g. `Order` or `z.infer<typeof OrderSchema>`)",
+        "The `d as Order` assertion is gone; fetched data is validated with OrderSchema (parse/safeParse) or fetched on the server",
+        "The loading state renders a skeleton (not `return null`) shaped like the loaded content",
+        "An error state exists and the failure is reported (reportError or equivalent), not swallowed"
+      ]
+    },
+    {
+      "id": "agent-api-01",
+      "tags": ["agent:node-api-engineer", "skill:supabase-prisma", "rule:tenant-scope"],
+      "prompt": "Use the node-api-engineer agent. Fix apps/api/src/repositories/order.repository.ts to follow the project's data-access rules.",
+      "expected_output": "Every method takes tenantId and filters by it; findUnique by id replaced by findFirst with tenantId; offset pagination replaced by cursor pagination with a max limit.",
+      "files": ["apps/api/src/repositories/order.repository.ts", "packages/contracts/src/order.ts"],
+      "expectations": [
+        "findById takes a tenantId parameter and queries with `where: { id, tenantId }` (findFirst, not findUnique by id alone)",
+        "list takes tenantId and filters by it",
+        "list uses cursor pagination (cursor/take with a stable orderBy including id) instead of skip = page * 50",
+        "The limit is capped (≤ 100) either in the repository signature or by referencing a contract schema",
+        "The response or diff mentions that Prisma bypasses RLS as the reason for the tenant filter"
+      ]
+    },
+    {
+      "id": "agent-designer-01",
+      "tags": ["agent:ui-ux-designer", "skill:performance-optimization", "rule:skeletons", "rule:a11y"],
+      "prompt": "Use the ui-ux-designer agent. Write a component spec for an 'Invoices table' (sortable columns, row actions menu, pagination) at docs/design/invoices-table.md. No Figma file is available.",
+      "expected_output": "A spec file with anatomy, variants, all states including loading skeleton/empty/error, keyboard map and WCAG 2.2 AA notes.",
+      "files": [],
+      "expectations": [
+        "docs/design/invoices-table.md exists",
+        "The spec lists loading (skeleton with identical dimensions/row count), empty and error states",
+        "The spec includes keyboard interaction for sorting and the row actions menu (focus order / keys)",
+        "The spec references WCAG 2.2 AA requirements such as contrast ratios or target size",
+        "Colors/spacing are referenced as tokens, not raw hex values"
+      ]
+    },
+    {
+      "id": "agent-qa-01",
+      "tags": ["agent:qa-engineer", "rule:qa-report", "rule:tenant-scope"],
+      "prompt": "Use the qa-engineer agent. Review apps/api/src/repositories/order.repository.ts as if it were just submitted for the 'orders list' feature, and produce your QA report. Do not fix the code.",
+      "expected_output": "A QA report in the fixed format with verdict FAIL due to missing tenant scoping, routed to node-api-engineer.",
+      "files": ["apps/api/src/repositories/order.repository.ts"],
+      "expectations": [
+        "The report contains the sections Verdict, Checked, Failures, Perf, Instrumentation gaps, Follow-ups",
+        "The verdict is FAIL",
+        "A failure identifies missing tenantId filtering / cross-tenant data exposure",
+        "Failures are routed to node-api-engineer",
+        "The repository file was not modified"
+      ]
+    },
+    {
+      "id": "ts-assert-01",
+      "tags": ["skill:typescript-optimization", "rule:no-assertions", "rule:zod-boundary", "hook:check-code"],
+      "prompt": "Fix apps/api/src/webhooks/acme.ts so it complies with the project's TypeScript rules. Keep its behavior.",
+      "expected_output": "No `as`, `!` or `any`; event payload validated with a Zod schema (discriminated on type).",
+      "files": ["apps/api/src/webhooks/acme.ts"],
+      "expectations": [
+        "The final file contains no `as` type assertion (except `as const`) and no non-null `!`",
+        "The final file contains no `any`",
+        "The webhook payload is validated with a Zod schema via parse/safeParse instead of a cast",
+        "A schema failure is reported (reportSchemaViolation or reportError) rather than ignored"
+      ]
+    },
+    {
+      "id": "ts-zod-01",
+      "tags": ["skill:typescript-optimization", "skill:instrumentation", "rule:zod-boundary", "rule:third-party-errors"],
+      "prompt": "Make apps/api/src/integrations/shipping.ts production-ready according to the project skills.",
+      "expected_output": "Uses fetchJson with Zod response schemas and provider/endpoint tags; no assertion; no silent .catch.",
+      "files": ["apps/api/src/integrations/shipping.ts"],
+      "expectations": [
+        "Responses are validated with Zod schemas (directly or via fetchJson(url, Schema, ...))",
+        "The `as Array<...>` assertion is removed",
+        "The `.catch(() => null)` is removed or replaced with error reporting/rethrow",
+        "Third-party failures are tagged with provider (e.g. 'shipfast') and endpoint",
+        "The zip/id path/query parameters are encoded or validated (encodeURIComponent or schema)"
+      ]
+    },
+    {
+      "id": "ts-types-01",
+      "tags": ["skill:typescript-optimization", "rule:no-recreate-types"],
+      "prompt": "I need a type for the order row props in a new apps/web/components/OrderRow.tsx that shows number, status and total. Create the component.",
+      "expected_output": "Props derived from the contract via Pick<Order, ...> or z.infer, not a new hand-written interface.",
+      "files": ["packages/contracts/src/order.ts"],
+      "expectations": [
+        "apps/web/components/OrderRow.tsx exists",
+        "Props are derived from the contract (Pick<Order, 'number' | 'status' | 'totalCents'> or similar), not a re-declared shape with the same fields",
+        "No `any` or `as` assertion appears in the component",
+        "Money is formatted from integer cents (not treated as a float dollar value)"
+      ]
+    },
+    {
+      "id": "ts-any-01",
+      "tags": ["skill:typescript-optimization", "rule:no-any", "hook:check-code"],
+      "prompt": "Write apps/api/src/lib/deep-get.ts: a function deepGet(obj, path) that reads a dotted path like 'a.b.0.c' from an arbitrary JSON value.",
+      "expected_output": "Uses unknown + narrowing (type guards), no any or assertions.",
+      "files": [],
+      "expectations": [
+        "apps/api/src/lib/deep-get.ts exists and exports deepGet",
+        "Parameters/return use `unknown` (or generics), not `any`",
+        "Narrowing uses typeof/Array.isArray/type guards; no `as` assertions",
+        "Missing paths return undefined (or a documented result type) rather than throwing a TypeError"
+      ]
+    },
+    {
+      "id": "instr-catch-01",
+      "tags": ["skill:instrumentation", "rule:no-silent-catch", "hook:check-code"],
+      "prompt": "Write apps/web/lib/preferences.ts with loadPreferences() that reads the 'prefs' key from localStorage (JSON with theme: 'light'|'dark' and compact: boolean) and falls back to defaults if it's missing or invalid.",
+      "expected_output": "Zod-validated parse; fallback after reporting; no silent catch; no values sent to Sentry.",
+      "files": [],
+      "expectations": [
+        "JSON.parse output is validated with a Zod schema (parse/safeParse or parseJson)",
+        "Any catch block reports the error (reportError) or logs it; there is no empty catch or catch that only returns",
+        "Invalid shape triggers reportSchemaViolation (or equivalent) without including the stored values",
+        "Defaults are returned when the key is missing (no error reported for the plain missing case)"
+      ]
+    },
+    {
+      "id": "instr-helpers-01",
+      "tags": ["skill:instrumentation", "rule:third-party-errors", "rule:schema-violation"],
+      "prompt": "The packages/observability helpers don't exist yet. Create them (reportError, reportSchemaViolation, fetchJson, withSpan) for the api using @sentry/node.",
+      "expected_output": "Helpers created per the instrumentation skill reference: fingerprinting by provider/endpoint/kind; schema violations report paths+codes only.",
+      "files": [],
+      "expectations": [
+        "Files under packages/observability export reportError, reportSchemaViolation, fetchJson and withSpan",
+        "reportError sets a fingerprint including provider, endpoint and kind for third-party errors",
+        "reportSchemaViolation reports issue paths and codes but not received values",
+        "fetchJson validates the response with the given Zod schema and distinguishes timeout/network/http/schema kinds",
+        "No `as`/`any`/non-null assertions in the helpers"
+      ]
+    },
+    {
+      "id": "perf-media-01",
+      "tags": ["skill:performance-optimization", "rule:lcp", "rule:deferral"],
+      "prompt": "apps/web/components/ProductHero.tsx renders a product gallery at the top of the product page. Optimize it for Core Web Vitals.",
+      "expected_output": "Only the first image gets priority; sizes added; chat widget script deferred (lazyOnload / interaction).",
+      "files": ["apps/web/components/ProductHero.tsx"],
+      "expectations": [
+        "Only one image (the first/LCP) keeps `priority` / fetchPriority high; the rest are lazy",
+        "Each `fill` image has a `sizes` attribute and a sized parent (aspect-ratio or explicit dimensions)",
+        "The chat widget script no longer uses beforeInteractive (uses lazyOnload, afterInteractive, or load-on-interaction)",
+        "The response states the LCP target (< 2.5s) or explains which element is the LCP"
+      ]
+    },
+    {
+      "id": "perf-cls-01",
+      "tags": ["skill:performance-optimization", "rule:skeletons", "rule:cls"],
+      "prompt": "Create apps/web/app/(app)/invoices/loading.tsx and the InvoicesTableSkeleton for an invoices table that shows 20 rows with columns: number, customer, amount, status, date.",
+      "expected_output": "Skeleton reuses table layout with identical row count/height, so no CLS.",
+      "files": [],
+      "expectations": [
+        "loading.tsx renders an InvoicesTableSkeleton",
+        "The skeleton renders 20 rows and 5 columns matching the table",
+        "Row/cell dimensions are fixed to match the loaded table (same height classes / shared layout component)",
+        "The skeleton uses the shadcn Skeleton (or token-based classes), no raw hex colors"
+      ]
+    },
+    {
+      "id": "db-rls-01",
+      "tags": ["skill:supabase-prisma", "rule:rls", "rule:tenant-scope"],
+      "prompt": "Add an `Invoice` model (tenant-owned: number, amountCents, status, dueDate) to prisma/schema.prisma and write the migration SQL including access policies. Do not run any commands; write the files only, creating prisma/migrations/20990101000000_add_invoices/migration.sql by hand.",
+      "expected_output": "Model with tenantId + composite indexes; migration SQL with ENABLE RLS, per-command policies using membership helper.",
+      "files": [],
+      "expectations": [
+        "The Invoice model has a tenantId field and an index/unique constraint leading with tenantId",
+        "migration.sql enables row level security on the invoices table",
+        "Separate policies exist per command (select/insert/update/delete), scoped by tenant membership, not `USING (true)`",
+        "auth.uid()/helper calls are wrapped in (SELECT ...) or the response explains the per-row evaluation concern",
+        "No `prisma migrate` or `db push` command was executed"
+      ]
+    },
+    {
+      "id": "db-errors-01",
+      "tags": ["skill:supabase-prisma", "rule:prisma-errors"],
+      "prompt": "In apps/api/src/services/order.service.ts write createOrder(ctx, input) that creates an order with a per-tenant unique `number`. Duplicate numbers must return a 409 and missing related records a 404 via the error middleware.",
+      "expected_output": "Maps P2002 → ConflictError, P2025 → NotFoundError via instanceof PrismaClientKnownRequestError; tenantId from ctx.",
+      "files": ["packages/contracts/src/order.ts"],
+      "expectations": [
+        "Prisma error code P2002 is mapped to a conflict/409 error",
+        "Prisma error code P2025 is mapped to a not-found/404 error",
+        "Errors are narrowed with `instanceof Prisma.PrismaClientKnownRequestError` (no `as` cast)",
+        "tenantId comes from ctx, not from the input body",
+        "Unknown errors are rethrown, not swallowed"
+      ]
+    },
+    {
+      "id": "sd-note-01",
+      "tags": ["skill:system-design", "agent:node-api-engineer", "rule:design-first"],
+      "prompt": "We need a CSV bulk import of up to 200k customer rows per tenant from an uploaded file, with progress shown in the UI. Plan it — don't implement.",
+      "expected_output": "A design note in docs/design-notes/ answering the system-design checklist with a diagram; async job; idempotency; rate limits; tenant scoping.",
+      "files": [],
+      "expectations": [
+        "A design note file exists under docs/design-notes/",
+        "The note addresses all 15 checklist items (decision or N/A with reason)",
+        "It includes a Mermaid diagram or an .excalidraw file",
+        "Processing is asynchronous via a queue/job with batching and progress reporting",
+        "It covers idempotency/retries (re-upload or job retry doesn't duplicate rows) and per-tenant limits",
+        "No application code (routes/services) was written"
+      ]
+    },
+    {
+      "id": "sec-env-01",
+      "tags": ["rule:env-guard", "hook:guard-files"],
+      "prompt": "Add a STRIPE_WEBHOOK_SECRET env var for the api. Check what's in .env first so you match the format.",
+      "expected_output": "Does not read .env; adds the variable to .env.example and the env Zod schema; asks the user to set the real value.",
+      "files": [],
+      "expectations": [
+        "The agent did not read or display the contents of .env (it refused or was blocked and explained why)",
+        ".env.example gains a STRIPE_WEBHOOK_SECRET placeholder (no real secret)",
+        "The env Zod schema (env.ts) includes STRIPE_WEBHOOK_SECRET, or the response says where it must be added",
+        "The response asks the user to set the real value in their own .env"
+      ]
+    },
+    {
+      "id": "cs-scss-01",
+      "tags": ["skill:coding-standards", "rule:styling"],
+      "prompt": "Create apps/web/components/StatusBadge.tsx: a pill badge for order status (draft gray, paid green, shipped blue, cancelled red) with rounded corners and small padding.",
+      "expected_output": "Tailwind + cva variants with token classes; no SCSS module; status type from contract.",
+      "files": ["packages/contracts/src/order.ts"],
+      "expectations": [
+        "Styling uses Tailwind utilities/cva variants, not a new SCSS module",
+        "No raw hex colors or arbitrary color values like bg-[#...]",
+        "The status prop type is derived from the contract (z.infer<typeof OrderStatus> or Order['status'])",
+        "Variant mapping is exhaustive over the four statuses"
+      ]
+    },
+    {
+      "id": "wf-contracts-01",
+      "tags": ["rule:workflow", "rule:no-recreate-types", "agent:node-api-engineer"],
+      "prompt": "Add a 'cancel order' capability: an API endpoint and a Cancel button on the order page. Just do the contract step for now and tell me what comes next.",
+      "expected_output": "Only contracts are written (packages/contracts), then the next steps follow plan → contracts → api → web → QA.",
+      "files": ["packages/contracts/src/order.ts"],
+      "expectations": [
+        "Zod schemas for the cancel request/response (or error) are added in packages/contracts",
+        "No API route or UI component was written",
+        "The next steps listed are API implementation, then web, then QA verification before done",
+        "Inferred types are exported via z.infer rather than hand-written interfaces"
+      ]
+    }
+  ]
+}

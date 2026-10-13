@@ -1,0 +1,23 @@
+# Secrets (only .env.example is committed)
+.env
+.env.*
+!.env.example
+
+# Dependencies / build output
+node_modules/
+.next/
+dist/
+build/
+out/
+coverage/
+storybook-static/
+.turbo/
+playwright-report/
+test-results/
+
+# Claude Code local-only
+.claude/settings.local.json
+CLAUDE.local.md
+
+# OS
+.DS_Store

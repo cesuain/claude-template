@@ -1,0 +1,11 @@
+# Agent loop (LLM features)
+- **Budgets**: max steps, max tokens (in/out), max wall time, max cost per run and per tenant/day. Hitting a budget ends gracefully with a partial result and reason.
+- **Tool args**: every tool has a Zod input schema. Model output is `safeParse`d, and invalid args are fed back as a tool error (bounded retries) and reported with `reportSchemaViolation('llm:<tool>', …)`.
+- **Final output**: Zod-validated structured output. Never render raw model output as HTML.
+- **Human-in-the-loop**: side-effecting tools (send email, charge, delete, external writes) require approval. Run state `awaiting_approval` with the proposed action persisted, and resume on approve/reject.
+- **Persisted steps**: `agent_runs(id, tenantId, status, budgetUsed, …)` + `agent_steps(runId, idx, type, toolName, argsJson, resultJson, tokens, latencyMs)`. Resumable from the last step and replayable for evals.
+- **Isolation**: tools execute with the caller's tenant ctx. The model never chooses tenantId.
+- **Safety**: treat retrieved/tool content as untrusted (prompt injection). Allowlist tools per context.
+- **Observability**: `withSpan('ai.run', 'ai.run')` per run, child spans per step. Token/cost metrics per tenant.
+- **Evals**: golden tasks in `evals/` with expectations. Run in CI on prompt/tool changes.
+- Run in a queue job (not the request) when > a few seconds. Stream progress via Realtime.

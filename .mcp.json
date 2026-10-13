@@ -1,0 +1,45 @@
+{
+  "mcpServers": {
+    "figma": {
+      "type": "http",
+      "url": "https://mcp.figma.com/mcp"
+    },
+    "storybook": {
+      "type": "http",
+      "url": "${STORYBOOK_MCP_URL:-http://localhost:6006/mcp}"
+    },
+    "postman": {
+      "type": "http",
+      "url": "https://mcp.postman.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${POSTMAN_API_KEY}"
+      }
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["postgres-mcp", "--access-mode=restricted"],
+      "env": {
+        "DATABASE_URI": "${DATABASE_URL_READONLY}"
+      }
+    },
+    "supabase": {
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?project_ref=${SUPABASE_PROJECT_REF}&read_only=true"
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--isolated"]
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "chrome-devtools-mcp@latest", "--isolated"]
+    },
+    "sentry": {
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    }
+  }
+}
